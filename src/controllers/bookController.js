@@ -1,5 +1,22 @@
 import asyncHandler from "express-async-handler";
 import Book from "../models/Book.js";
+import { isCloudinaryEnabled, uploadBufferToCloudinary } from "../utils/cloudinary.js";
+
+const resolveImagePath = async (file) => {
+  if (!file) {
+    return "";
+  }
+
+  if (isCloudinaryEnabled()) {
+    if (!file.buffer) {
+      throw new Error("Image buffer missing for cloud upload");
+    }
+    const uploaded = await uploadBufferToCloudinary(file.buffer);
+    return uploaded.secure_url;
+  }
+
+  return `/uploads/${file.filename}`;
+};
 
 export const getBooks = asyncHandler(async (req, res) => {
   const { search = "", author = "", category = "", minPrice, maxPrice } = req.query;
@@ -44,7 +61,7 @@ export const createBook = asyncHandler(async (req, res) => {
     throw new Error("Book image is required");
   }
 
-  const image = `/uploads/${req.file.filename}`;
+  const image = await resolveImagePath(req.file);
 
   const book = await Book.create({
     title,
@@ -76,7 +93,7 @@ export const updateBook = asyncHandler(async (req, res) => {
   book.description = description ?? book.description;
 
   if (req.file) {
-    book.image = `/uploads/${req.file.filename}`;
+    book.image = await resolveImagePath(req.file);
   }
 
   const updated = await book.save();

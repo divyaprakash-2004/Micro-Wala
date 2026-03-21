@@ -1,6 +1,7 @@
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
+import mongoose from "mongoose";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -10,6 +11,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import bookRoutes from "./routes/bookRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
+import { validateStartupEnv } from "./utils/envValidation.js";
 import { ensureAdmin } from "./utils/seedAdmin.js";
 
 dotenv.config();
@@ -63,7 +65,21 @@ app.get("/", (req, res) => {
 });
 
 app.get("/api/health", (req, res) => {
-  res.json({ message: "API is running" });
+  const envCheck = validateStartupEnv();
+  const readyState = mongoose.connection.readyState;
+  const dbStatus = readyState === 1 ? "connected" : "disconnected";
+
+  res.status(envCheck.ok ? 200 : 503).json({
+    message: "API is running",
+    uptimeSeconds: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+    database: dbStatus,
+    env: {
+      startupOk: envCheck.ok,
+      requiredMissing: envCheck.requiredMissing,
+      optional: envCheck.optional
+    }
+  });
 });
 
 app.use("/api/auth", authRoutes);
@@ -76,6 +92,16 @@ app.use(errorHandler);
 
 const start = async () => {
   try {
+    const envCheck = validateStartupEnv();
+    if (!envCheck.ok) {
+      console.error("Missing required environment variables:", envCheck.requiredMissing.join(", "));
+      process.exit(1);
+    }
+
+    if (!envCheck.optional.smtpReady || !envCheck.optional.twilioReady) {
+      console.warn("Notification providers are partially configured. SMS/Email delivery may fail.");
+    }
+
     await connectDB();
     await ensureAdmin();
     app.listen(port, () => {
