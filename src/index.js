@@ -75,11 +75,16 @@ app.use(notFound);
 app.use(errorHandler);
 
 const start = async () => {
-  await connectDB();
-  await ensureAdmin();
-  app.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}`);
-  });
+  try {
+    await connectDB();
+    await ensureAdmin();
+    app.listen(port, () => {
+      console.log(`Server running on http://localhost:${port}`);
+    });
+  } catch (error) {
+    console.error("Startup failed:", error?.message || error);
+    process.exit(1);
+  }
 };
 
 start();

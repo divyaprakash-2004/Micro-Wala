@@ -3,14 +3,19 @@ import mongoose from "mongoose";
 
 export const connectDB = async () => {
   try {
-    const mongoUri = process.env.MONGO_URI;
+    const mongoUri =
+      process.env.MONGO_URI ||
+      process.env.MONGODB_URI ||
+      process.env.DATABASE_URL;
 
     if (!mongoUri) {
-      throw new Error("MONGO_URI is not set in environment variables");
+      throw new Error(
+        "Mongo URI is missing. Set MONGO_URI (or MONGODB_URI / DATABASE_URL)."
+      );
     }
 
-    if (mongoUri.startsWith("mongodb+srv://")) {
-      const dnsServers = (process.env.DNS_SERVERS || "8.8.8.8,1.1.1.1")
+    if (mongoUri.startsWith("mongodb+srv://") && process.env.DNS_SERVERS) {
+      const dnsServers = process.env.DNS_SERVERS
         .split(",")
         .map((server) => server.trim())
         .filter(Boolean);
