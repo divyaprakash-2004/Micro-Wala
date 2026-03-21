@@ -79,8 +79,7 @@ export const createOrder = asyncHandler(async (req, res) => {
 
   const notifications = await sendOrderPlacedNotifications({
     order,
-    email: req.user.email,
-    phone
+    email: req.user.email
   });
 
   res.status(201).json({
@@ -146,8 +145,7 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
   if (shouldNotifyStatusChange) {
     notifications = await sendOrderStatusNotifications({
       order: updated,
-      email: customerEmail,
-      phone: updated.phone
+      email: customerEmail
     });
   }
 

@@ -1,6 +1,4 @@
 import nodemailer from "nodemailer";
-import twilio from "twilio";
-import NotificationLog from "../models/NotificationLog.js";
 import { getNotificationConfigStatus } from "./envValidation.js";
 import { orderStatusLabel } from "./orderStatus.js";
 
@@ -19,28 +17,6 @@ const estimateDeliveryText = (orderedAt) => {
     month: "short",
     year: "numeric"
   });
-};
-
-const normalizePhone = (phone) => {
-  const digits = String(phone || "").replace(/\D/g, "");
-  if (!digits) {
-    return "";
-  }
-
-  if (digits.startsWith("91") && digits.length === 12) {
-    return `+${digits}`;
-  }
-
-  if (digits.length === 10) {
-    const countryCode = String(process.env.SMS_DEFAULT_COUNTRY_CODE || "+91").trim();
-    return `${countryCode}${digits}`;
-  }
-
-  if (digits.startsWith("0") && digits.length > 10) {
-    return `+${digits.slice(1)}`;
-  }
-
-  return digits.startsWith("+") ? digits : `+${digits}`;
 };
 
 const getMailTransporter = () => {
@@ -66,36 +42,20 @@ const getMailTransporter = () => {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const persistFailedNotification = async ({ order, eventType, channel, recipient, status, attempts, errorMessage, payload }) => {
-  try {
-    await NotificationLog.create({
-      orderId: order?.orderId,
-      eventType,
-      channel,
-      recipient,
-      status,
-      attempts,
-      errorMessage,
-      payload
-    });
-  } catch (error) {
-    console.error("[NOTIFY][LOG] Failed to persist notification log:", error.message);
-  }
-};
-
-const withRetries = async ({ work, maxAttempts, onRetry }) => {
+const withRetries = async ({ work, maxAttempts }) => {
   let attempts = 0;
   let lastError = null;
 
   while (attempts < maxAttempts) {
     attempts += 1;
     try {
-      await work(attempts);
+      await work();
       return { success: true, attempts };
     } catch (error) {
       lastError = error;
+      const errorMessage = error?.message || "Unknown error";
+      console.error(`[NOTIFY][EMAIL] Attempt ${attempts} failed: ${errorMessage}`);
       if (attempts < maxAttempts) {
-        await onRetry?.(attempts, error);
         const delayMs = Number(process.env.NOTIFY_RETRY_DELAY_MS || 700);
         await sleep(delayMs);
       }
@@ -107,30 +67,6 @@ const withRetries = async ({ work, maxAttempts, onRetry }) => {
     attempts,
     error: lastError
   };
-};
-
-export const sendSMS = async (phone, message) => {
-  const twilioSid = process.env.TWILIO_ACCOUNT_SID;
-  const twilioToken = process.env.TWILIO_AUTH_TOKEN;
-  const twilioFrom = process.env.TWILIO_PHONE_NUMBER;
-  const toPhone = normalizePhone(phone);
-
-  if (!twilioSid || !twilioToken || !twilioFrom) {
-    throw new Error("SMS configuration is missing");
-  }
-
-  if (!toPhone) {
-    throw new Error("Customer phone number is missing");
-  }
-
-  console.log(`[NOTIFY][SMS] Sending SMS to ${toPhone}`);
-  const client = twilio(twilioSid, twilioToken);
-  await client.messages.create({
-    from: twilioFrom,
-    to: toPhone,
-    body: message
-  });
-  console.log(`[NOTIFY][SMS] SMS sent to ${toPhone}`);
 };
 
 export const sendEmail = async (to, subject, htmlContent) => {
@@ -152,26 +88,6 @@ export const sendEmail = async (to, subject, htmlContent) => {
     html: htmlContent
   });
   console.log(`[NOTIFY][EMAIL] Email sent to ${to}`);
-};
-
-const buildOrderPlacedSms = (order) =>
-  `Your order has been placed successfully. Order ID: ${order.orderId}. Thank you for shopping with us!`;
-
-const buildStatusUpdateSms = (order) => {
-  const label = orderStatusLabel(order.status);
-  if (label === "Confirmed") {
-    return `Your order ${order.orderId} has been confirmed.`;
-  }
-  if (label === "Shipped") {
-    return `Your order ${order.orderId} has been shipped.`;
-  }
-  if (label === "Out for Delivery") {
-    return `Your order ${order.orderId} is out for delivery.`;
-  }
-  if (label === "Delivered") {
-    return `Your order ${order.orderId} has been delivered.`;
-  }
-  return `Your order ${order.orderId} status is now ${label}.`;
 };
 
 const buildItemsHtml = (order) => `<li>${order.productName} x ${order.quantity} - ${formatCurrency(order.totalPrice)}</li>`;
@@ -210,132 +126,49 @@ const buildStatusUpdateEmail = (order) => {
   `;
 };
 
-const getBaseNotificationResult = () => {
+const safeNotifyEmail = async ({ email, emailSubject, emailHtml }) => {
   const config = getNotificationConfigStatus();
-
-  return {
+  const result = {
     emailConfigured: config.emailConfigured,
-    smsConfigured: config.smsConfigured,
     emailSent: false,
-    smsSent: false,
     email: {
       status: config.emailConfigured ? "Pending" : "Not Configured",
       attempts: 0,
       errorMessage: ""
     },
-    sms: {
-      status: config.smsConfigured ? "Pending" : "Not Configured",
-      attempts: 0,
-      errorMessage: ""
-    },
     warnings: []
   };
-};
 
-const notifyChannel = async ({ order, eventType, channel, recipient, sender, payload }) => {
-  const maxAttempts = Math.max(1, Number(process.env.NOTIFY_RETRY_ATTEMPTS || 3));
+  if (!config.emailConfigured) {
+    return result;
+  }
 
   const run = await withRetries({
-    maxAttempts,
-    work: async () => {
-      await sender();
-    },
-    onRetry: async (attempt, error) => {
-      const errorMessage = error?.message || "Unknown error";
-      console.error(`[NOTIFY][${channel}] Attempt ${attempt} failed: ${errorMessage}`);
-      await persistFailedNotification({
-        order,
-        eventType,
-        channel,
-        recipient,
-        status: "Retrying",
-        attempts: attempt,
-        errorMessage,
-        payload
-      });
-    }
+    maxAttempts: Math.max(1, Number(process.env.NOTIFY_RETRY_ATTEMPTS || 3)),
+    work: async () => sendEmail(email, emailSubject, emailHtml)
   });
 
+  result.emailSent = run.success;
+  result.email.status = run.success ? "Sent" : "Failed";
+  result.email.attempts = run.attempts;
+  result.email.errorMessage = run.error?.message || "";
   if (!run.success) {
-    const errorMessage = run.error?.message || "Unknown error";
-    console.error(`[NOTIFY][${channel}] Failed after ${run.attempts} attempts: ${errorMessage}`);
-    await persistFailedNotification({
-      order,
-      eventType,
-      channel,
-      recipient,
-      status: "Failed",
-      attempts: run.attempts,
-      errorMessage,
-      payload
-    });
-  }
-
-  return run;
-};
-
-const safeNotify = async ({ order, eventType, phone, smsMessage, email, emailSubject, emailHtml }) => {
-  const result = getBaseNotificationResult();
-
-  if (result.smsConfigured) {
-    const smsRun = await notifyChannel({
-      order,
-      eventType,
-      channel: "SMS",
-      recipient: String(phone || "unknown"),
-      payload: { message: smsMessage },
-      sender: () => sendSMS(phone, smsMessage)
-    });
-
-    result.smsSent = smsRun.success;
-    result.sms.status = smsRun.success ? "Sent" : "Failed";
-    result.sms.attempts = smsRun.attempts;
-    result.sms.errorMessage = smsRun.error?.message || "";
-    if (!smsRun.success) {
-      result.warnings.push(`SMS failed: ${result.sms.errorMessage}`);
-    }
-  }
-
-  if (result.emailConfigured) {
-    const emailRun = await notifyChannel({
-      order,
-      eventType,
-      channel: "EMAIL",
-      recipient: String(email || "unknown"),
-      payload: { subject: emailSubject },
-      sender: () => sendEmail(email, emailSubject, emailHtml)
-    });
-
-    result.emailSent = emailRun.success;
-    result.email.status = emailRun.success ? "Sent" : "Failed";
-    result.email.attempts = emailRun.attempts;
-    result.email.errorMessage = emailRun.error?.message || "";
-    if (!emailRun.success) {
-      result.warnings.push(`Email failed: ${result.email.errorMessage}`);
-    }
+    result.warnings.push(`Email failed: ${result.email.errorMessage}`);
   }
 
   return result;
 };
 
-export const sendOrderPlacedNotifications = async ({ order, email, phone }) => {
-  return safeNotify({
-    order,
-    eventType: "ORDER_PLACED",
-    phone,
-    smsMessage: buildOrderPlacedSms(order),
+export const sendOrderPlacedNotifications = async ({ order, email }) => {
+  return safeNotifyEmail({
     email,
     emailSubject: `Order Confirmation - ${order.orderId}`,
     emailHtml: buildOrderPlacedEmail(order)
   });
 };
 
-export const sendOrderStatusNotifications = async ({ order, email, phone }) => {
-  return safeNotify({
-    order,
-    eventType: "ORDER_STATUS_UPDATED",
-    phone,
-    smsMessage: buildStatusUpdateSms(order),
+export const sendOrderStatusNotifications = async ({ order, email }) => {
+  return safeNotifyEmail({
     email,
     emailSubject: `Order Status Updated - ${order.orderId}`,
     emailHtml: buildStatusUpdateEmail(order)

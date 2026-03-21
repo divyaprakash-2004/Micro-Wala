@@ -22,10 +22,6 @@ export const validateStartupEnv = () => {
 
 export const getOptionalConfigStatus = () => ({
   smtpReady: hasValue(process.env.SMTP_HOST) && hasValue(process.env.SMTP_USER) && hasValue(process.env.SMTP_PASS),
-  twilioReady:
-    hasValue(process.env.TWILIO_ACCOUNT_SID) &&
-    hasValue(process.env.TWILIO_AUTH_TOKEN) &&
-    hasValue(process.env.TWILIO_PHONE_NUMBER),
   cloudinaryReady:
     hasValue(process.env.CLOUDINARY_CLOUD_NAME) &&
     hasValue(process.env.CLOUDINARY_API_KEY) &&
@@ -35,7 +31,6 @@ export const getOptionalConfigStatus = () => ({
 export const getNotificationConfigStatus = () => {
   const optional = getOptionalConfigStatus();
   return {
-    emailConfigured: optional.smtpReady,
-    smsConfigured: optional.twilioReady
+    emailConfigured: optional.smtpReady
   };
 };

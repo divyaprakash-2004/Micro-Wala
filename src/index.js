@@ -100,13 +100,12 @@ const start = async () => {
       process.exit(1);
     }
 
-    if (!envCheck.optional.smtpReady || !envCheck.optional.twilioReady) {
-      console.warn("Notification providers are partially configured. SMS/Email delivery may fail.");
+    if (!envCheck.optional.smtpReady) {
+      console.warn("Email provider is not configured. Email delivery may fail.");
     }
 
     const configStatus = getNotificationConfigStatus();
     console.log(`[CONFIG] Email configured: ${configStatus.emailConfigured}`);
-    console.log(`[CONFIG] SMS configured: ${configStatus.smsConfigured}`);
 
     await connectDB();
     await ensureAdmin();
