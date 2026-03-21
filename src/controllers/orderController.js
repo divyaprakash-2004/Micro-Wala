@@ -2,7 +2,9 @@ import asyncHandler from "express-async-handler";
 import QRCode from "qrcode";
 import Book from "../models/Book.js";
 import Order from "../models/Order.js";
-import { sendOrderNotifications } from "../utils/orderNotifications.js";
+import User from "../models/User.js";
+import { sendOrderPlacedNotifications, sendOrderStatusNotifications } from "../utils/orderNotifications.js";
+import { ORDER_STATUS, ORDER_STATUS_VALUES, normalizeOrderStatus } from "../utils/orderStatus.js";
 
 export const createOrder = asyncHandler(async (req, res) => {
   const { name, phone, address, pincode, productId, quantity, paymentMethod, transactionReference } = req.body;
@@ -75,7 +77,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     paymentStatus
   });
 
-  const notifications = await sendOrderNotifications({
+  const notifications = await sendOrderPlacedNotifications({
     order,
     email: req.user.email,
     phone
@@ -103,10 +105,9 @@ export const getAllOrders = asyncHandler(async (req, res) => {
 
 export const updateOrderStatus = asyncHandler(async (req, res) => {
   const { status } = req.body;
-  const nextStatus = String(status || "").toLowerCase();
-  const allowed = ["pending", "shipped", "delivered"];
+  const nextStatus = normalizeOrderStatus(status);
 
-  if (!allowed.includes(nextStatus)) {
+  if (!ORDER_STATUS_VALUES.includes(nextStatus)) {
     res.status(400);
     throw new Error("Invalid status value");
   }
@@ -117,13 +118,33 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
     throw new Error("Order not found");
   }
 
+  const previousStatus = normalizeOrderStatus(order.status);
   order.status = nextStatus;
-  if (order.paymentMethod === "HALF_QR_COD" && nextStatus === "delivered") {
+  if (order.paymentMethod === "HALF_QR_COD" && nextStatus === ORDER_STATUS.DELIVERED) {
     order.paymentStatus = "paid";
   }
 
   const updated = await order.save();
-  res.json(updated);
+
+  let customerEmail = "";
+  if (updated.user) {
+    const user = await User.findById(updated.user).select("email");
+    customerEmail = user?.email || "";
+  }
+
+  let notifications = null;
+  if (previousStatus !== nextStatus) {
+    notifications = await sendOrderStatusNotifications({
+      order: updated,
+      email: customerEmail,
+      phone: updated.phone
+    });
+  }
+
+  res.json({
+    order: updated,
+    notifications
+  });
 });
 
 export const deleteOrder = asyncHandler(async (req, res) => {
