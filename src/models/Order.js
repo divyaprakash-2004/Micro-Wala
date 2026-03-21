@@ -53,12 +53,22 @@ const orderSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["QR", "COD"],
+      enum: ["QR", "COD", "HALF_QR_COD"],
       required: true
+    },
+    advancePaidAmount: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    codAmount: {
+      type: Number,
+      default: 0,
+      min: 0
     },
     paymentStatus: {
       type: String,
-      enum: ["pending", "paid"],
+      enum: ["pending", "partial_paid", "paid"],
       default: "pending"
     },
     status: {

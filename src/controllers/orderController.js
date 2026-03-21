@@ -29,6 +29,31 @@ export const createOrder = asyncHandler(async (req, res) => {
   }
 
   const totalPrice = Number((book.price * parsedQuantity).toFixed(2));
+  const normalizedMethod = String(paymentMethod || "").toUpperCase();
+  const allowedMethods = ["QR", "COD", "HALF_QR_COD"];
+
+  if (!allowedMethods.includes(normalizedMethod)) {
+    res.status(400);
+    throw new Error("Invalid payment method");
+  }
+
+  let advancePaidAmount = 0;
+  let codAmount = 0;
+  let paymentStatus = "pending";
+
+  if (normalizedMethod === "QR") {
+    advancePaidAmount = totalPrice;
+    codAmount = 0;
+    paymentStatus = "pending";
+  } else if (normalizedMethod === "HALF_QR_COD") {
+    advancePaidAmount = Number((totalPrice / 2).toFixed(2));
+    codAmount = Number((totalPrice - advancePaidAmount).toFixed(2));
+    paymentStatus = "partial_paid";
+  } else {
+    advancePaidAmount = 0;
+    codAmount = totalPrice;
+    paymentStatus = "pending";
+  }
 
   await Book.findByIdAndUpdate(book._id, { $inc: { stock: -parsedQuantity } });
 
@@ -46,12 +71,14 @@ export const createOrder = asyncHandler(async (req, res) => {
     productImage: book.image,
     quantity: parsedQuantity,
     totalPrice,
-    paymentMethod,
-    paymentStatus: paymentMethod === "QR" ? "pending" : "pending"
+    paymentMethod: normalizedMethod,
+    advancePaidAmount,
+    codAmount,
+    paymentStatus
   });
 
   const whatsappText = encodeURIComponent(
-    `Order Placed: ${order.orderId}\nName: ${name}\nBook: ${book.title}\nQty: ${parsedQuantity}\nTotal: Rs ${totalPrice}\nPayment: ${paymentMethod}`
+    `Order Placed: ${order.orderId}\nName: ${name}\nBook: ${book.title}\nQty: ${parsedQuantity}\nTotal: Rs ${totalPrice}\nPayment: ${normalizedMethod}\nAdvance Paid: Rs ${advancePaidAmount}\nCOD Remaining: Rs ${codAmount}`
   );
 
   res.status(201).json({
@@ -92,6 +119,9 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
 
   order.status = nextStatus;
   if (order.paymentMethod === "QR" && nextStatus !== "pending") {
+    order.paymentStatus = "paid";
+  }
+  if (order.paymentMethod === "HALF_QR_COD" && nextStatus === "delivered") {
     order.paymentStatus = "paid";
   }
 
