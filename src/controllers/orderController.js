@@ -4,7 +4,7 @@ import Book from "../models/Book.js";
 import Order from "../models/Order.js";
 import User from "../models/User.js";
 import { sendOrderPlacedNotifications, sendOrderStatusNotifications } from "../utils/orderNotifications.js";
-import { ORDER_STATUS, ORDER_STATUS_VALUES, normalizeOrderStatus } from "../utils/orderStatus.js";
+import { ORDER_STATUS, ORDER_STATUS_VALUES, canMoveToNextOrderStatus, normalizeOrderStatus } from "../utils/orderStatus.js";
 
 export const createOrder = asyncHandler(async (req, res) => {
   const { name, phone, address, pincode, productId, quantity, paymentMethod, transactionReference } = req.body;
@@ -119,6 +119,12 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
   }
 
   const previousStatus = normalizeOrderStatus(order.status);
+
+  if (!canMoveToNextOrderStatus(previousStatus, nextStatus)) {
+    res.status(400);
+    throw new Error("Invalid status flow. Allowed: Pending -> Confirmed -> Shipped -> Out for Delivery -> Delivered");
+  }
+
   order.status = nextStatus;
   if (order.paymentMethod === "HALF_QR_COD" && nextStatus === ORDER_STATUS.DELIVERED) {
     order.paymentStatus = "paid";
@@ -133,7 +139,11 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
   }
 
   let notifications = null;
-  if (previousStatus !== nextStatus) {
+  const shouldNotifyStatusChange =
+    previousStatus !== nextStatus &&
+    [ORDER_STATUS.CONFIRMED, ORDER_STATUS.SHIPPED, ORDER_STATUS.OUT_FOR_DELIVERY, ORDER_STATUS.DELIVERED].includes(nextStatus);
+
+  if (shouldNotifyStatusChange) {
     notifications = await sendOrderStatusNotifications({
       order: updated,
       email: customerEmail,

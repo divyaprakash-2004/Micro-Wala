@@ -11,21 +11,31 @@ export const validateStartupEnv = () => {
     requiredMissing.push("JWT_SECRET");
   }
 
-  const optional = {
-    smtpReady: hasValue(process.env.SMTP_HOST) && hasValue(process.env.SMTP_USER) && hasValue(process.env.SMTP_PASS),
-    twilioReady:
-      hasValue(process.env.TWILIO_ACCOUNT_SID) &&
-      hasValue(process.env.TWILIO_AUTH_TOKEN) &&
-      hasValue(process.env.TWILIO_PHONE_NUMBER),
-    cloudinaryReady:
-      hasValue(process.env.CLOUDINARY_CLOUD_NAME) &&
-      hasValue(process.env.CLOUDINARY_API_KEY) &&
-      hasValue(process.env.CLOUDINARY_API_SECRET)
-  };
+  const optional = getOptionalConfigStatus();
 
   return {
     ok: requiredMissing.length === 0,
     requiredMissing,
     optional
+  };
+};
+
+export const getOptionalConfigStatus = () => ({
+  smtpReady: hasValue(process.env.SMTP_HOST) && hasValue(process.env.SMTP_USER) && hasValue(process.env.SMTP_PASS),
+  twilioReady:
+    hasValue(process.env.TWILIO_ACCOUNT_SID) &&
+    hasValue(process.env.TWILIO_AUTH_TOKEN) &&
+    hasValue(process.env.TWILIO_PHONE_NUMBER),
+  cloudinaryReady:
+    hasValue(process.env.CLOUDINARY_CLOUD_NAME) &&
+    hasValue(process.env.CLOUDINARY_API_KEY) &&
+    hasValue(process.env.CLOUDINARY_API_SECRET)
+});
+
+export const getNotificationConfigStatus = () => {
+  const optional = getOptionalConfigStatus();
+  return {
+    emailConfigured: optional.smtpReady,
+    smsConfigured: optional.twilioReady
   };
 };

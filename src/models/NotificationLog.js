@@ -23,7 +23,7 @@ const notificationLogSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["SUCCESS", "FAILED"],
+      enum: ["Retrying", "Failed"],
       required: true
     },
     attempts: {
@@ -39,7 +39,10 @@ const notificationLogSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed
     }
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    collection: "failed_notifications"
+  }
 );
 
 const NotificationLog = mongoose.model("NotificationLog", notificationLogSchema);

@@ -10,8 +10,9 @@ import { errorHandler, notFound } from "./middleware/errorMiddleware.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import bookRoutes from "./routes/bookRoutes.js";
+import configRoutes from "./routes/configRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
-import { validateStartupEnv } from "./utils/envValidation.js";
+import { getNotificationConfigStatus, validateStartupEnv } from "./utils/envValidation.js";
 import { ensureAdmin } from "./utils/seedAdmin.js";
 
 dotenv.config();
@@ -84,6 +85,7 @@ app.get("/api/health", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/books", bookRoutes);
+app.use("/api/config", configRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/admin", adminRoutes);
 
@@ -101,6 +103,10 @@ const start = async () => {
     if (!envCheck.optional.smtpReady || !envCheck.optional.twilioReady) {
       console.warn("Notification providers are partially configured. SMS/Email delivery may fail.");
     }
+
+    const configStatus = getNotificationConfigStatus();
+    console.log(`[CONFIG] Email configured: ${configStatus.emailConfigured}`);
+    console.log(`[CONFIG] SMS configured: ${configStatus.smsConfigured}`);
 
     await connectDB();
     await ensureAdmin();
