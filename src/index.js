@@ -1,0 +1,85 @@
+import cors from "cors";
+import dotenv from "dotenv";
+import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
+
+import { connectDB } from "./config/db.js";
+import { errorHandler, notFound } from "./middleware/errorMiddleware.js";
+import adminRoutes from "./routes/adminRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
+import bookRoutes from "./routes/bookRoutes.js";
+import orderRoutes from "./routes/orderRoutes.js";
+import { ensureAdmin } from "./utils/seedAdmin.js";
+
+dotenv.config();
+
+const app = express();
+const port = process.env.PORT || 5000;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      const envOrigins = (process.env.ALLOWED_ORIGINS || "")
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+
+      const allowedOrigins = [
+        process.env.CLIENT_URL,
+        ...envOrigins,
+        "http://localhost:5173",
+        "http://localhost:5174"
+      ].filter(Boolean);
+
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        /^http:\/\/localhost:\d+$/.test(origin) ||
+        /\.loca\.lt$/.test(origin) ||
+        /\.vercel\.app$/.test(origin) ||
+        /\.netlify\.app$/.test(origin)
+      ) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error("Not allowed by CORS"));
+    }
+  })
+);
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+app.get("/", (req, res) => {
+  res.json({
+    message: "Book Store API is running",
+    health: "/api/health"
+  });
+});
+
+app.get("/api/health", (req, res) => {
+  res.json({ message: "API is running" });
+});
+
+app.use("/api/auth", authRoutes);
+app.use("/api/books", bookRoutes);
+app.use("/api/orders", orderRoutes);
+app.use("/api/admin", adminRoutes);
+
+app.use(notFound);
+app.use(errorHandler);
+
+const start = async () => {
+  await connectDB();
+  await ensureAdmin();
+  app.listen(port, () => {
+    console.log(`Server running on http://localhost:${port}`);
+  });
+};
+
+start();
