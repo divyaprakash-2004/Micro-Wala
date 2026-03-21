@@ -21,16 +21,8 @@ export const validateStartupEnv = () => {
 };
 
 export const getOptionalConfigStatus = () => ({
-  smtpReady: hasValue(process.env.SMTP_HOST) && hasValue(process.env.SMTP_USER) && hasValue(process.env.SMTP_PASS),
   cloudinaryReady:
     hasValue(process.env.CLOUDINARY_CLOUD_NAME) &&
     hasValue(process.env.CLOUDINARY_API_KEY) &&
     hasValue(process.env.CLOUDINARY_API_SECRET)
 });
-
-export const getNotificationConfigStatus = () => {
-  const optional = getOptionalConfigStatus();
-  return {
-    emailConfigured: optional.smtpReady
-  };
-};

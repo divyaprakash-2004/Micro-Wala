@@ -2,8 +2,6 @@ import asyncHandler from "express-async-handler";
 import QRCode from "qrcode";
 import Book from "../models/Book.js";
 import Order from "../models/Order.js";
-import User from "../models/User.js";
-import { sendOrderPlacedNotifications, sendOrderStatusNotifications } from "../utils/orderNotifications.js";
 import { ORDER_STATUS, ORDER_STATUS_VALUES, canMoveToNextOrderStatus, normalizeOrderStatus } from "../utils/orderStatus.js";
 
 export const createOrder = asyncHandler(async (req, res) => {
@@ -77,15 +75,9 @@ export const createOrder = asyncHandler(async (req, res) => {
     paymentStatus
   });
 
-  const notifications = await sendOrderPlacedNotifications({
-    order,
-    email: req.user.email
-  });
-
   res.status(201).json({
     message: "Order confirmed after half payment",
-    order,
-    notifications
+    order
   });
 });
 
@@ -131,28 +123,7 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
 
   const updated = await order.save();
 
-  let customerEmail = "";
-  if (updated.user) {
-    const user = await User.findById(updated.user).select("email");
-    customerEmail = user?.email || "";
-  }
-
-  let notifications = null;
-  const shouldNotifyStatusChange =
-    previousStatus !== nextStatus &&
-    [ORDER_STATUS.CONFIRMED, ORDER_STATUS.SHIPPED, ORDER_STATUS.OUT_FOR_DELIVERY, ORDER_STATUS.DELIVERED].includes(nextStatus);
-
-  if (shouldNotifyStatusChange) {
-    notifications = await sendOrderStatusNotifications({
-      order: updated,
-      email: customerEmail
-    });
-  }
-
-  res.json({
-    order: updated,
-    notifications
-  });
+  res.json({ order: updated });
 });
 
 export const deleteOrder = asyncHandler(async (req, res) => {
