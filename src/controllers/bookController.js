@@ -1,21 +1,32 @@
 import asyncHandler from "express-async-handler";
 import Book from "../models/Book.js";
-import { isCloudinaryEnabled, uploadBufferToCloudinary } from "../utils/cloudinary.js";
+import { isCloudinaryEnabled } from "../utils/cloudinary.js";
+
+const FALLBACK_BOOK_IMAGE_URL =
+  process.env.DEFAULT_BOOK_IMAGE_URL ||
+  "https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg";
+
+const normalizeBookImage = (bookDoc) => {
+  const plain = typeof bookDoc?.toObject === "function" ? bookDoc.toObject() : bookDoc;
+  const image = String(plain?.image || "").trim();
+  const isAbsolute = /^https?:\/\//i.test(image);
+
+  return {
+    ...plain,
+    image: isAbsolute ? image : FALLBACK_BOOK_IMAGE_URL
+  };
+};
 
 const resolveImagePath = async (file) => {
   if (!file) {
     return "";
   }
 
-  if (isCloudinaryEnabled()) {
-    if (!file.buffer) {
-      throw new Error("Image buffer missing for cloud upload");
-    }
-    const uploaded = await uploadBufferToCloudinary(file.buffer);
-    return uploaded.secure_url;
+  if (!isCloudinaryEnabled()) {
+    throw new Error("Cloudinary is not configured");
   }
 
-  return `/uploads/${file.filename}`;
+  return file.path || file.secure_url || "";
 };
 
 export const getBooks = asyncHandler(async (req, res) => {
@@ -41,7 +52,7 @@ export const getBooks = asyncHandler(async (req, res) => {
   }
 
   const books = await Book.find(query).sort({ createdAt: -1 });
-  res.json(books);
+  res.json(books.map(normalizeBookImage));
 });
 
 export const getBookById = asyncHandler(async (req, res) => {
@@ -50,7 +61,7 @@ export const getBookById = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("Book not found");
   }
-  res.json(book);
+  res.json(normalizeBookImage(book));
 });
 
 export const createBook = asyncHandler(async (req, res) => {
@@ -73,7 +84,7 @@ export const createBook = asyncHandler(async (req, res) => {
     image
   });
 
-  res.status(201).json(book);
+  res.status(201).json(normalizeBookImage(book));
 });
 
 export const updateBook = asyncHandler(async (req, res) => {
@@ -97,7 +108,7 @@ export const updateBook = asyncHandler(async (req, res) => {
   }
 
   const updated = await book.save();
-  res.json(updated);
+  res.json(normalizeBookImage(updated));
 });
 
 export const deleteBook = asyncHandler(async (req, res) => {

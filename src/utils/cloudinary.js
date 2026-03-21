@@ -17,6 +17,8 @@ if (hasCloudinaryConfig()) {
 
 export const isCloudinaryEnabled = () => hasCloudinaryConfig();
 
+export { cloudinary };
+
 export const uploadBufferToCloudinary = async (buffer, folder = "micro-book-store") => {
   if (!isCloudinaryEnabled()) {
     throw new Error("Cloudinary is not configured");
@@ -38,5 +40,16 @@ export const uploadBufferToCloudinary = async (buffer, folder = "micro-book-stor
     );
 
     uploadStream.end(buffer);
+  });
+};
+
+export const uploadLocalFileToCloudinary = async (filePath, folder = "micro-book-store") => {
+  if (!isCloudinaryEnabled()) {
+    throw new Error("Cloudinary is not configured");
+  }
+
+  return cloudinary.uploader.upload(filePath, {
+    folder,
+    resource_type: "image"
   });
 };

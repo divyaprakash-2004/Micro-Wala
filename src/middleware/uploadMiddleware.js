@@ -1,25 +1,19 @@
-import fs from "fs";
 import multer from "multer";
-import path from "path";
-import { isCloudinaryEnabled } from "../utils/cloudinary.js";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
+import { cloudinary, isCloudinaryEnabled } from "../utils/cloudinary.js";
 
-const uploadDir = path.join(process.cwd(), "src", "uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const diskStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const baseName = path.basename(file.originalname, ext).replace(/\s+/g, "-").toLowerCase();
-    cb(null, `${baseName}-${Date.now()}${ext}`);
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: async (req, file) => {
+    const extension = file.mimetype.split("/")[1] || "jpg";
+    return {
+      folder: "micro-book-store",
+      resource_type: "image",
+      format: extension,
+      public_id: `book-${Date.now()}-${Math.round(Math.random() * 1e6)}`
+    };
   }
 });
-
-const memoryStorage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
   if (file.mimetype.startsWith("image/")) {
@@ -30,7 +24,16 @@ const fileFilter = (req, file, cb) => {
 };
 
 export const upload = multer({
-  storage: isCloudinaryEnabled() ? memoryStorage : diskStorage,
+  storage,
   fileFilter,
   limits: { fileSize: 5 * 1024 * 1024 }
 });
+
+export const requireCloudinary = (req, res, next) => {
+  if (!isCloudinaryEnabled()) {
+    res.status(503);
+    next(new Error("Cloudinary is not configured. Image upload is unavailable."));
+    return;
+  }
+  next();
+};
