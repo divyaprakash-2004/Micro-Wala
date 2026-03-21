@@ -20,6 +20,11 @@ const HomePage = () => {
       const { data } = await api.get("/books", {
         params: { search, category, minPrice, maxPrice }
       });
+      if (import.meta.env.DEV) {
+        data.forEach((product) => {
+          console.log("[IMAGE_DEBUG] product.image:", product.image);
+        });
+      }
       setBooks(data.map(withImageUrl));
     } catch {
       toast.error("Unable to fetch books");

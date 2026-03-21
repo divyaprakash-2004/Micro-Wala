@@ -63,10 +63,6 @@ export const orderStatusClass = (status) => {
 };
 
 export const withImageUrl = (book) => {
-  const base =
-    import.meta.env.VITE_API_URL?.replace("/api", "") ||
-    "https://micro-wala.onrender.com";
-
   const rawImage = String(book?.image || "").trim();
   if (!rawImage) {
     return {
@@ -75,14 +71,8 @@ export const withImageUrl = (book) => {
     };
   }
 
-  let imageUrl = rawImage;
-  if (rawImage.startsWith("http://") || rawImage.startsWith("https://")) {
-    imageUrl = rawImage;
-  } else if (rawImage.startsWith("/")) {
-    imageUrl = `${base}${rawImage}`;
-  } else {
-    imageUrl = `${base}/${rawImage}`;
-  }
+  const isAbsoluteUrl = rawImage.startsWith("http://") || rawImage.startsWith("https://");
+  const imageUrl = isAbsoluteUrl ? rawImage : BOOK_IMAGE_FALLBACK;
 
   return {
     ...book,
