@@ -5,6 +5,7 @@ export const BOOK_IMAGE_FALLBACK = "/book-placeholder.svg";
 export const ORDER_STATUS = {
   PENDING: "PENDING",
   CONFIRMED: "CONFIRMED",
+  SHIPPED: "SHIPPED",
   OUT_FOR_DELIVERY: "OUT_FOR_DELIVERY",
   DELIVERED: "DELIVERED"
 };
@@ -12,13 +13,18 @@ export const ORDER_STATUS = {
 const ORDER_STATUS_LABELS = {
   [ORDER_STATUS.PENDING]: "Pending",
   [ORDER_STATUS.CONFIRMED]: "Confirmed",
+  [ORDER_STATUS.SHIPPED]: "Shipped",
   [ORDER_STATUS.OUT_FOR_DELIVERY]: "Out for Delivery",
   [ORDER_STATUS.DELIVERED]: "Delivered"
 };
 
 const LEGACY_STATUS_MAP = {
   pending: ORDER_STATUS.PENDING,
-  shipped: ORDER_STATUS.OUT_FOR_DELIVERY,
+  confirmed: ORDER_STATUS.CONFIRMED,
+  shipped: ORDER_STATUS.SHIPPED,
+  out_for_delivery: ORDER_STATUS.OUT_FOR_DELIVERY,
+  outfordelivery: ORDER_STATUS.OUT_FOR_DELIVERY,
+  "out for delivery": ORDER_STATUS.OUT_FOR_DELIVERY,
   delivered: ORDER_STATUS.DELIVERED
 };
 
@@ -46,6 +52,9 @@ export const orderStatusClass = (status) => {
   }
   if (normalized === ORDER_STATUS.OUT_FOR_DELIVERY) {
     return "bg-blue-100 text-blue-700";
+  }
+  if (normalized === ORDER_STATUS.SHIPPED) {
+    return "bg-violet-100 text-violet-700";
   }
   if (normalized === ORDER_STATUS.CONFIRMED) {
     return "bg-cyan-100 text-cyan-700";

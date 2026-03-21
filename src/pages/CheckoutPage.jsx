@@ -19,6 +19,10 @@ const CheckoutPage = () => {
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
   const [successData, setSuccessData] = useState(null);
+  const [configStatus, setConfigStatus] = useState({
+    emailConfigured: false,
+    smsConfigured: false
+  });
 
   const [form, setForm] = useState({
     name: user?.name || "",
@@ -53,6 +57,25 @@ const CheckoutPage = () => {
 
     fetchBook();
   }, [bookId, navigate, toast]);
+
+  useEffect(() => {
+    const fetchConfigStatus = async () => {
+      try {
+        const { data } = await api.get("/config/status");
+        setConfigStatus({
+          emailConfigured: Boolean(data?.emailConfigured),
+          smsConfigured: Boolean(data?.smsConfigured)
+        });
+      } catch {
+        setConfigStatus({
+          emailConfigured: false,
+          smsConfigured: false
+        });
+      }
+    };
+
+    fetchConfigStatus();
+  }, []);
 
   const totalPrice = useMemo(() => {
     if (!book) {
@@ -175,8 +198,24 @@ const CheckoutPage = () => {
         </div>
 
         <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-left text-sm text-emerald-900">
-          <p>Email notification: {successData.notifications?.emailSent ? "Sent" : "Pending/Not Configured"}</p>
-          <p>SMS notification: {successData.notifications?.smsSent ? "Sent" : "Pending/Not Configured"}</p>
+          <p>
+            Email notification: {
+              successData.notifications?.emailSent
+                ? "Sent"
+                : configStatus.emailConfigured
+                  ? "Configured (delivery pending/failed)"
+                  : "Not Configured"
+            }
+          </p>
+          <p>
+            SMS notification: {
+              successData.notifications?.smsSent
+                ? "Sent"
+                : configStatus.smsConfigured
+                  ? "Configured (delivery pending/failed)"
+                  : "Not Configured"
+            }
+          </p>
           <p className="mt-1">Estimated delivery: 3-5 business days</p>
         </div>
 
