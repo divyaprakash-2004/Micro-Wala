@@ -27,11 +27,9 @@ const AdminDashboardPage = () => {
   const [books, setBooks] = useState([]);
   const [orders, setOrders] = useState([]);
   const [users, setUsers] = useState([]);
-  const [failedNotifications, setFailedNotifications] = useState([]);
   const [notificationStatusByOrder, setNotificationStatusByOrder] = useState({});
   const [configStatus, setConfigStatus] = useState({
-    emailConfigured: false,
-    smsConfigured: false
+    emailConfigured: false
   });
   const [updatingOrderId, setUpdatingOrderId] = useState("");
   const [bookForm, setBookForm] = useState(initialBook);
@@ -42,20 +40,17 @@ const AdminDashboardPage = () => {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [booksRes, ordersRes, usersRes, failedRes, configRes] = await Promise.all([
+      const [booksRes, ordersRes, usersRes, configRes] = await Promise.all([
         api.get("/books"),
         api.get("/orders"),
         api.get("/admin/users"),
-        api.get("/admin/failed-notifications"),
         api.get("/config/status")
       ]);
       setBooks(booksRes.data.map(withImageUrl));
       setOrders(ordersRes.data);
       setUsers(usersRes.data);
-      setFailedNotifications(failedRes.data || []);
       setConfigStatus({
-        emailConfigured: Boolean(configRes.data?.emailConfigured),
-        smsConfigured: Boolean(configRes.data?.smsConfigured)
+        emailConfigured: Boolean(configRes.data?.emailConfigured)
       });
     } catch {
       toast.error("Failed to load admin dashboard data");
@@ -146,8 +141,7 @@ const AdminDashboardPage = () => {
     setNotificationStatusByOrder((prev) => ({
       ...prev,
       [id]: {
-        email: configStatus.emailConfigured ? "Retrying" : "Not Configured",
-        sms: configStatus.smsConfigured ? "Retrying" : "Not Configured"
+        email: configStatus.emailConfigured ? "Retrying" : "Not Configured"
       }
     }));
 
@@ -156,24 +150,21 @@ const AdminDashboardPage = () => {
       toast.success("Order status updated");
       if (data?.notifications) {
         const emailStatus = data.notifications?.email?.status || (data.notifications?.emailSent ? "Sent" : "Failed");
-        const smsStatus = data.notifications?.sms?.status || (data.notifications?.smsSent ? "Sent" : "Failed");
 
         setNotificationStatusByOrder((prev) => ({
           ...prev,
           [id]: {
-            email: emailStatus,
-            sms: smsStatus
+            email: emailStatus
           }
         }));
-        toast.success(`Notifications: Email ${emailStatus}, SMS ${smsStatus}`);
+        toast.success(`Notification Email: ${emailStatus}`);
       }
       fetchAll();
     } catch (error) {
       setNotificationStatusByOrder((prev) => ({
         ...prev,
         [id]: {
-          email: "Failed",
-          sms: "Failed"
+          email: "Failed"
         }
       }));
       toast.error(error.response?.data?.message || "Failed to update order status");
@@ -313,31 +304,9 @@ const AdminDashboardPage = () => {
                   </div>
                   <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-700">
                     <p>Email Notification: <span className="font-semibold">{notificationStatusByOrder[order._id]?.email || "Not Triggered"}</span></p>
-                    <p>SMS Notification: <span className="font-semibold">{notificationStatusByOrder[order._id]?.sms || "Not Triggered"}</span></p>
                   </div>
                 </article>
               ))}
-            </div>
-          </div>
-
-          <div className="rounded-2xl bg-white/95 p-5 shadow-lg">
-            <h2 className="font-display text-2xl text-teal-900">Failed Notification Logs</h2>
-            <p className="mt-1 text-xs text-slate-600">
-              Email configured: <span className="font-semibold">{configStatus.emailConfigured ? "Configured" : "Not Configured"}</span> | SMS configured: <span className="font-semibold">{configStatus.smsConfigured ? "Configured" : "Not Configured"}</span>
-            </p>
-            <div className="mt-3 space-y-2 text-xs">
-              {!failedNotifications.length ? (
-                <p className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-emerald-800">No failed/retrying notifications found.</p>
-              ) : (
-                failedNotifications.map((log) => (
-                  <article key={log._id} className="rounded-lg border border-rose-100 bg-rose-50/40 px-3 py-2">
-                    <p className="font-semibold text-slate-800">{log.channel} | {log.status}</p>
-                    <p className="text-slate-600">Order: {log.orderId || "N/A"} | Attempts: {log.attempts}</p>
-                    <p className="text-slate-600">Recipient: {log.recipient}</p>
-                    {log.errorMessage ? <p className="text-rose-700">Error: {log.errorMessage}</p> : null}
-                  </article>
-                ))
-              )}
             </div>
           </div>
 
