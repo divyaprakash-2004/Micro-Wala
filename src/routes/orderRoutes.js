@@ -7,12 +7,12 @@ import {
   getPaymentQr,
   updateOrderStatus
 } from "../controllers/orderController.js";
-import { adminOnly, optionalProtect, protect } from "../middleware/authMiddleware.js";
+import { adminOnly, protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 router.get("/qr", getPaymentQr);
-router.post("/", optionalProtect, createOrder);
+router.post("/", protect, createOrder);
 router.get("/mine", protect, getMyOrders);
 router.get("/", protect, adminOnly, getAllOrders);
 router.put("/:id/status", protect, adminOnly, updateOrderStatus);

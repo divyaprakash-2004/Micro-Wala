@@ -53,8 +53,13 @@ const orderSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["QR", "COD", "HALF_QR_COD"],
+      enum: ["HALF_QR_COD"],
       required: true
+    },
+    transactionReference: {
+      type: String,
+      required: true,
+      trim: true
     },
     advancePaidAmount: {
       type: Number,

@@ -2,11 +2,17 @@ import asyncHandler from "express-async-handler";
 import QRCode from "qrcode";
 import Book from "../models/Book.js";
 import Order from "../models/Order.js";
+import { sendOrderNotifications } from "../utils/orderNotifications.js";
 
 export const createOrder = asyncHandler(async (req, res) => {
-  const { name, phone, address, pincode, productId, quantity, paymentMethod } = req.body;
+  const { name, phone, address, pincode, productId, quantity, paymentMethod, transactionReference } = req.body;
 
-  if (!name || !phone || !address || !pincode || !productId || !quantity || !paymentMethod) {
+  if (!req.user) {
+    res.status(401);
+    throw new Error("Please login to place an order");
+  }
+
+  if (!name || !phone || !address || !pincode || !productId || !quantity || !paymentMethod || !transactionReference) {
     res.status(400);
     throw new Error("Please fill all required checkout fields");
   }
@@ -30,30 +36,21 @@ export const createOrder = asyncHandler(async (req, res) => {
 
   const totalPrice = Number((book.price * parsedQuantity).toFixed(2));
   const normalizedMethod = String(paymentMethod || "").toUpperCase();
-  const allowedMethods = ["QR", "COD", "HALF_QR_COD"];
+  const normalizedTxnRef = String(transactionReference || "").trim();
 
-  if (!allowedMethods.includes(normalizedMethod)) {
+  if (normalizedMethod !== "HALF_QR_COD") {
     res.status(400);
-    throw new Error("Invalid payment method");
+    throw new Error("Only half payment + COD is allowed");
   }
 
-  let advancePaidAmount = 0;
-  let codAmount = 0;
-  let paymentStatus = "pending";
-
-  if (normalizedMethod === "QR") {
-    advancePaidAmount = totalPrice;
-    codAmount = 0;
-    paymentStatus = "pending";
-  } else if (normalizedMethod === "HALF_QR_COD") {
-    advancePaidAmount = Number((totalPrice / 2).toFixed(2));
-    codAmount = Number((totalPrice - advancePaidAmount).toFixed(2));
-    paymentStatus = "partial_paid";
-  } else {
-    advancePaidAmount = 0;
-    codAmount = totalPrice;
-    paymentStatus = "pending";
+  if (normalizedTxnRef.length < 4) {
+    res.status(400);
+    throw new Error("Transaction reference is required to confirm half payment");
   }
+
+  const advancePaidAmount = Number((totalPrice / 2).toFixed(2));
+  const codAmount = Number((totalPrice - advancePaidAmount).toFixed(2));
+  const paymentStatus = "partial_paid";
 
   await Book.findByIdAndUpdate(book._id, { $inc: { stock: -parsedQuantity } });
 
@@ -72,19 +69,22 @@ export const createOrder = asyncHandler(async (req, res) => {
     quantity: parsedQuantity,
     totalPrice,
     paymentMethod: normalizedMethod,
+    transactionReference: normalizedTxnRef,
     advancePaidAmount,
     codAmount,
     paymentStatus
   });
 
-  const whatsappText = encodeURIComponent(
-    `Order Placed: ${order.orderId}\nName: ${name}\nBook: ${book.title}\nQty: ${parsedQuantity}\nTotal: Rs ${totalPrice}\nPayment: ${normalizedMethod}\nAdvance Paid: Rs ${advancePaidAmount}\nCOD Remaining: Rs ${codAmount}`
-  );
+  const notifications = await sendOrderNotifications({
+    order,
+    email: req.user.email,
+    phone
+  });
 
   res.status(201).json({
-    message: "Order placed successfully",
+    message: "Order confirmed after half payment",
     order,
-    whatsappLink: `https://wa.me/?text=${whatsappText}`
+    notifications
   });
 });
 
@@ -118,9 +118,6 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
   }
 
   order.status = nextStatus;
-  if (order.paymentMethod === "QR" && nextStatus !== "pending") {
-    order.paymentStatus = "paid";
-  }
   if (order.paymentMethod === "HALF_QR_COD" && nextStatus === "delivered") {
     order.paymentStatus = "paid";
   }
