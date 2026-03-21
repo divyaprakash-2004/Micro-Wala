@@ -27,10 +27,6 @@ const AdminDashboardPage = () => {
   const [books, setBooks] = useState([]);
   const [orders, setOrders] = useState([]);
   const [users, setUsers] = useState([]);
-  const [notificationStatusByOrder, setNotificationStatusByOrder] = useState({});
-  const [configStatus, setConfigStatus] = useState({
-    emailConfigured: false
-  });
   const [updatingOrderId, setUpdatingOrderId] = useState("");
   const [bookForm, setBookForm] = useState(initialBook);
   const [editingId, setEditingId] = useState("");
@@ -40,18 +36,14 @@ const AdminDashboardPage = () => {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [booksRes, ordersRes, usersRes, configRes] = await Promise.all([
+      const [booksRes, ordersRes, usersRes] = await Promise.all([
         api.get("/books"),
         api.get("/orders"),
-        api.get("/admin/users"),
-        api.get("/config/status")
+        api.get("/admin/users")
       ]);
       setBooks(booksRes.data.map(withImageUrl));
       setOrders(ordersRes.data);
       setUsers(usersRes.data);
-      setConfigStatus({
-        emailConfigured: Boolean(configRes.data?.emailConfigured)
-      });
     } catch {
       toast.error("Failed to load admin dashboard data");
     } finally {
@@ -138,35 +130,12 @@ const AdminDashboardPage = () => {
 
   const changeOrderStatus = async (id, status) => {
     setUpdatingOrderId(id);
-    setNotificationStatusByOrder((prev) => ({
-      ...prev,
-      [id]: {
-        email: configStatus.emailConfigured ? "Retrying" : "Not Configured"
-      }
-    }));
 
     try {
-      const { data } = await api.put(`/orders/${id}/status`, { status });
+      await api.put(`/orders/${id}/status`, { status });
       toast.success("Order status updated");
-      if (data?.notifications) {
-        const emailStatus = data.notifications?.email?.status || (data.notifications?.emailSent ? "Sent" : "Failed");
-
-        setNotificationStatusByOrder((prev) => ({
-          ...prev,
-          [id]: {
-            email: emailStatus
-          }
-        }));
-        toast.success(`Notification Email: ${emailStatus}`);
-      }
       fetchAll();
     } catch (error) {
-      setNotificationStatusByOrder((prev) => ({
-        ...prev,
-        [id]: {
-          email: "Failed"
-        }
-      }));
       toast.error(error.response?.data?.message || "Failed to update order status");
     } finally {
       setUpdatingOrderId("");
@@ -301,9 +270,6 @@ const AdminDashboardPage = () => {
                     >
                       Delete
                     </button>
-                  </div>
-                  <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-700">
-                    <p>Email Notification: <span className="font-semibold">{notificationStatusByOrder[order._id]?.email || "Not Triggered"}</span></p>
                   </div>
                 </article>
               ))}
