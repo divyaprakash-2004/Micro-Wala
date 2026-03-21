@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-start: #f3f8f4;
+  --bg-end: #d8efe9;
+  --ink: #0d2f2c;
+  --brand: #0f766e;
+  --brand-soft: #8dd3c7;
+  --sun: #f4b75d;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: "Manrope", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 8% 12%, rgba(244, 183, 93, 0.35), transparent 35%),
+    radial-gradient(circle at 88% 8%, rgba(17, 120, 108, 0.2), transparent 30%),
+    linear-gradient(140deg, var(--bg-start), var(--bg-end));
+  min-height: 100vh;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.page-enter {
+  animation: rise-in 0.45s ease;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
