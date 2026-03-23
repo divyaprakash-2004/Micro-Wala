@@ -1,6 +1,7 @@
-import { ExternalLink, Instagram, Mail, Phone } from "lucide-react";
+import { ExternalLink, Instagram, Mail, Phone, Youtube } from "lucide-react";
 
 const INSTAGRAM_URL = "https://www.instagram.com/micro_wala?igsh=MW91ZTM3ZjV6bjM3ZA==";
+const YOUTUBE_URL = "https://youtube.com/@micro_wala?si=g_8GGQ-IiL4kCscL";
 const SUPPORT_PHONE = "9523001743";
 const SUPPORT_EMAIL = "justtkrishnaraj@gmail.com";
 
@@ -40,6 +41,21 @@ const ContactPage = () => {
           </p>
           <p className="mt-2 text-sm text-slate-700">{SUPPORT_PHONE}</p>
           <p className="mt-4 text-xs font-semibold text-teal-700">Tap to call now</p>
+        </a>
+
+        <a
+          href={YOUTUBE_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="rounded-2xl border border-teal-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+        >
+          <p className="inline-flex items-center gap-2 text-base font-bold text-teal-900">
+            <Youtube size={18} /> YouTube
+          </p>
+          <p className="mt-2 text-sm text-slate-700">@micro_wala</p>
+          <p className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-teal-700">
+            Open YouTube <ExternalLink size={13} />
+          </p>
         </a>
 
         <a
