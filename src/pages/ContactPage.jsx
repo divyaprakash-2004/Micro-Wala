@@ -16,6 +16,31 @@ const ContactPage = () => {
         </p>
       </div>
 
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <a
+          href={INSTAGRAM_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-teal-200 bg-white px-4 py-3 text-sm font-semibold text-teal-900"
+        >
+          <Instagram size={16} /> Instagram
+        </a>
+        <a
+          href={YOUTUBE_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-teal-200 bg-white px-4 py-3 text-sm font-semibold text-teal-900"
+        >
+          <Youtube size={16} /> YouTube
+        </a>
+        <a
+          href={`tel:${SUPPORT_PHONE}`}
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-teal-200 bg-white px-4 py-3 text-sm font-semibold text-teal-900"
+        >
+          <Phone size={16} /> Call Now
+        </a>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <a
           href={INSTAGRAM_URL}
